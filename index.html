@@ -7,6 +7,9 @@
 </style></head><body><main id="root"></main><script>
 const ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 let state={v:1,theme:'ice',to:'',from:'',letter:'',photo:'',ornaments:[]},selected='ball',keyValue='';
+let loadedKey='';
+function saveDraft(){try{const k=(keyValue||'').trim().toUpperCase();if(!/^XT-[A-Z0-9]{6}$/.test(k))return;localStorage.setItem('xmastree.draft.'+k,JSON.stringify(state));localStorage.setItem('xmastree.lastKey',k)}catch(e){}}
+function loadDraft(k){try{const raw=localStorage.getItem('xmastree.draft.'+k);if(!raw)return false;const d=JSON.parse(raw);if(!d||typeof d!=='object')return false;state=Object.assign({v:1,theme:'ice',to:'',from:'',letter:'',photo:'',ornaments:[]},d);if(!Array.isArray(state.ornaments))state.ornaments=[];loadedKey=k;keyValue=k;try{localStorage.setItem('xmastree.lastKey',k)}catch(e){}document.body.className=state.theme==='ice'?'':state.theme;return true}catch(e){return false}}
 function enc(s){return btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function dec(x){try{return JSON.parse(decodeURIComponent(escape(atob(x.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-x.length%4)%4)))))}catch(e){return null}}
 function validKey(k){const m=k.trim().match(/^XT-([A-Z0-9]{6})$/);if(!m)return false;const a=m[1];if([...a].some(c=>!ALPHABET.includes(c)))return false;let s=0;for(let i=0;i<5;i++)s+=(i+1)*ALPHABET.indexOf(a[i]);return s%31===ALPHABET.indexOf(a[5])}
@@ -92,16 +95,17 @@ function renderEditor(){root.innerHTML='<div class="app"><header class="brand"><
   const cv=document.getElementById('cv'),eng=new Engine(cv);
   attachPointer(cv,eng,e=>{const r=cv.getBoundingClientRect();if(state.ornaments.length>=30)return;
     const ox=Math.round((e.clientX-r.left)/r.width*1000),oy=Math.round((e.clientY-r.top)/r.height*1000);
-    state.ornaments.push({t:selected,x:ox,y:oy});eng.flash((ox/1000)*r.width,(oy/1000)*r.height)});
+    state.ornaments.push({t:selected,x:ox,y:oy});saveDraft();eng.flash((ox/1000)*r.width,(oy/1000)*r.height)});
   document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{selected=b.dataset.t;document.querySelectorAll('.tool').forEach(z=>z.classList.toggle('active',z===b))});
-  document.querySelectorAll('.theme-btn').forEach(b=>b.onclick=()=>{state.theme=b.dataset.theme;document.body.className=state.theme==='ice'?'':state.theme;renderEditor()});
-  undo.onclick=()=>{state.ornaments.pop()};clear.onclick=()=>{state.ornaments=[]};
-  key.oninput=()=>keyValue=key.value;
-  photo.onchange=e=>{const f=e.target.files[0];if(f)resizePhoto(f,480,0.6,d=>state.photo=d)};
-  generate.onclick=()=>{state.to=to.value;state.from=from.value;state.letter=letter.value;err.textContent='';
+  document.querySelectorAll('.theme-btn').forEach(b=>b.onclick=()=>{state.theme=b.dataset.theme;document.body.className=state.theme==='ice'?'':state.theme;saveDraft();renderEditor()});
+  undo.onclick=()=>{state.ornaments.pop();saveDraft()};clear.onclick=()=>{state.ornaments=[];saveDraft()};
+  key.oninput=()=>{keyValue=key.value;const k=keyValue.trim().toUpperCase();if(/^XT-[A-Z0-9]{6}$/.test(k)&&k!==loadedKey){if(loadDraft(k))renderEditor();else loadedKey=k}else saveDraft()};
+  to.oninput=()=>{state.to=to.value;saveDraft()};from.oninput=()=>{state.from=from.value;saveDraft()};letter.oninput=()=>{state.letter=letter.value;saveDraft()};
+  photo.onchange=e=>{const f=e.target.files[0];if(f)resizePhoto(f,480,0.6,d=>{state.photo=d;saveDraft()})};
+  generate.onclick=()=>{state.to=to.value;state.from=from.value;state.letter=letter.value;saveDraft();err.textContent='';
     if(!validKey(keyValue)){err.textContent='卡密不对，检查一下或联系卖家';return}
     let u=location.href.split('#')[0]+'#d='+enc(state);
-    if(u.length>50000&&state.photo)resizePhoto(null,360,0.5,d=>{state.photo=d;show()});else show()};
+    if(u.length>50000&&state.photo)resizePhoto(null,360,0.5,d=>{state.photo=d;saveDraft();show()});else show()};
   function show(){ow.style.display='block';out.value=location.href.split('#')[0]+'#d='+enc(state)}
   copy.onclick=()=>{if(navigator.clipboard)navigator.clipboard.writeText(out.value).catch(()=>{})}}
 function resizePhoto(file,max,q,cb){const rd=new FileReader();
@@ -118,5 +122,5 @@ function renderReceiver(){root.innerHTML='<div class="receiver"><div class="sub"
   lb.onclick=()=>lp.style.display=lp.style.display==='block'?'none':'block'}
 const h=location.hash.match(/^#d=(.+)$/);
 if(h){const d=dec(h[1]);if(d){state=Object.assign(state,d);document.body.className=state.theme==='ice'?'':state.theme;renderReceiver()}else root.innerHTML='<div class="receiver"><h1>链接好像不完整</h1></div>'}
-else renderEditor();
+else{try{const lk=localStorage.getItem('xmastree.lastKey');if(lk)loadDraft(lk)}catch(e){}renderEditor()}
 </script></body></html>
